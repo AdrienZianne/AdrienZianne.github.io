@@ -7,8 +7,9 @@ use::turingrs::turing_machine::TuringMachine;
 use crate::{turing::Turing, ui::{self, constant::Constant}};
 
 pub struct TuringApp {
-    pub turing: Turing,
-    pub test_turing: TuringMachine,
+    pub old_turing: Turing,
+    pub turing: TuringMachine,
+    pub code: String,
     pub graph_rect: Rect,
     pub is_stable: bool,
 }
@@ -16,10 +17,11 @@ pub struct TuringApp {
 impl Default for TuringApp {
     fn default() -> Self {
         Self {
-            turing: Turing::default(),
-            test_turing: TuringMachine::new(1),
+            old_turing: Turing::default(),
+            turing: TuringMachine::new(1),
             graph_rect: Rect::ZERO,
-            is_stable: true
+            is_stable: true,
+            code: String::from("")
         }
     }
 }

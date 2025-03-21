@@ -22,6 +22,7 @@ window.wasmBindings = bindings;
 dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
 
 </script>
+    <link rel="manifest" href="manifest.json">
     <!-- this is the base url relative to which other urls will be constructed. trunk will insert this from the public-url option -->
     <base href="/" />
 
@@ -114,7 +115,7 @@ dispatchEvent(new CustomEvent("TrunkApplicationStarted", {detail: {wasm}}));
             }
         }
     </style>
-<link rel="modulepreload" href="/turing_egui.js" crossorigin="anonymous" integrity="sha384-26qlypbyFLk+xg7BgFrC+qINinoeuSmU5V71+oR3O6mqSW6xe1txnWaT/lLrAWnV"><link rel="preload" href="/turing_egui_bg.wasm" crossorigin="anonymous" integrity="sha384-wOHVH4ttbDxg3O6mS8T+8mRuNucouhvT1Acb+So91ibRVOHOkeJcMis6uaAJXdsf" as="fetch" type="application/wasm"></head>
+<link rel="modulepreload" href="/turing_egui.js" crossorigin="anonymous" integrity="sha384-IzpPJQMMHnPp4rsj0kopuJNG3ODgteIufgUMRVdqjtUdMxCcKSJGhzecFR5aLFWc"><link rel="preload" href="/turing_egui_bg.wasm" crossorigin="anonymous" integrity="sha384-t7C9Baw8sb78ie3j53+VbW8JXvDZ6KFwJ/9T74SSpe7I5JF/swFohXipYbfGpyd7" as="fetch" type="application/wasm"></head>
 
 <body>
     <!-- The WASM code will resize the canvas dynamically -->

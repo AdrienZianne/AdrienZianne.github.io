@@ -16,7 +16,7 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
         .show(left, |flex| {
             let mut text = String::new();
 
-            let field = text_edit_single(flex.style_mut(), &mut app.turing.input);
+            let field = text_edit_single(flex.style_mut(), &mut app.old_turing.input);
             let update = button(flex.style_mut(), "Update");
         
             flex.add(item().shrink(), field);
@@ -37,10 +37,10 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
             flex.add(item(),play);
             flex.add(item(),pause);
             if flex.add(item(),reset).clicked() {
-                app.turing.rubindex[0] = 0;
+                app.old_turing.rubindex[0] = 0;
             };
             if flex.add(item(),next).clicked() {
-                app.turing.rubindex[0] += 1;
+                app.old_turing.rubindex[0] += 1;
             };
         });
 

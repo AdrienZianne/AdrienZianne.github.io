@@ -8,6 +8,7 @@ use egui::{
     mutex::Mutex,
     vec2,
 };
+use turingrs::parser::parse_turing_machine;
 
 use crate::{
     TuringApp,
@@ -46,16 +47,16 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                     // ui.painter().circle(center.to_pos2(), 1.0, Color32::RED, Stroke::NONE);
 
                     // draw transitions
-                    for i in 0..app.turing.edges.len() {
+                    for i in 0..app.old_turing.edges.len() {
                         let force_switch = app
-                            .turing
-                            .is_adjacent(app.turing.edges[i].source, app.turing.edges[i].target)
+                            .old_turing
+                            .is_adjacent(app.old_turing.edges[i].source, app.old_turing.edges[i].target)
                             > 1
-                            && app.turing.edges[i].source > app.turing.edges[i].target;
+                            && app.old_turing.edges[i].source > app.old_turing.edges[i].target;
 
-                        let edge = &app.turing.edges[i];
-                        let source = &app.turing.nodes[edge.source];
-                        let target = &app.turing.nodes[edge.target];
+                        let edge = &app.old_turing.edges[i];
+                        let source = &app.old_turing.nodes[edge.source];
+                        let target = &app.old_turing.nodes[edge.target];
 
                         draw_transition(
                             ui,
@@ -69,15 +70,15 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                     }
 
                     // draw the nodes
-                    for i in 0..app.turing.nodes.len() {
-                        let node = &app.turing.nodes[i];
+                    for i in 0..app.old_turing.nodes.len() {
+                        let node = &app.old_turing.nodes[i];
                         let zoomed_pos = node.state.position;
                         let response = draw_node(
                             ui,
                             zoomed_pos,
                             50.0,
                             node.state.color,
-                            if app.turing.selected.is_some_and(|x| x == i) {
+                            if app.old_turing.selected.is_some_and(|x| x == i) {
                                 Color32::LIGHT_GRAY
                             } else {
                                 Color32::DARK_GRAY
@@ -88,29 +89,29 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                         // if node clicked
                         if response.clicked() {
                             // if there is a node already selected
-                            if app.turing.selected.is_some() {
-                                match app.turing.transition_exist(app.turing.selected.unwrap(), i) {
-                                    Some(e) => app.turing.remove_transition(e),
+                            if app.old_turing.selected.is_some() {
+                                match app.old_turing.transition_exist(app.old_turing.selected.unwrap(), i) {
+                                    Some(e) => app.old_turing.remove_transition(e),
                                     None => {
-                                        app.turing.add_transition(
+                                        app.old_turing.add_transition(
                                             Transition {
                                                 text: String::from("ç,ç -> R,ç,R"),
                                             },
-                                            app.turing.selected.unwrap(),
+                                            app.old_turing.selected.unwrap(),
                                             i,
                                         );
                                         app.is_stable = false;
                                     }
                                 }
 
-                                app.turing.selected = None;
+                                app.old_turing.selected = None;
                             } else {
-                                app.turing.selected = Some(i);
+                                app.old_turing.selected = Some(i);
                             }
                         }
 
                         if response.dragged() {
-                            app.turing.nodes[i].state.position =
+                            app.old_turing.nodes[i].state.position =
                                 response.interact_pointer_pos().unwrap();
                         }
                     }
@@ -124,10 +125,10 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                 if response.double_clicked() {
                     app.graph_rect = inner_rect;
                 } else {
-                    if app.turing.selected.is_some() {
-                        app.turing.selected = None;
+                    if app.old_turing.selected.is_some() {
+                        app.old_turing.selected = None;
                     } else {
-                        app.turing.add_state(State::new_at_pos(
+                        app.old_turing.add_state(State::new_at_pos(
                             String::from("test"),
                             response
                                 .interact_pointer_pos()
@@ -321,7 +322,7 @@ fn update_graph(ofl: Arc<Mutex<OrganicForceLoop>>) {
 
 // apply a force on the node for organic layout
 fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
-    let k = app.turing.nodes.len();
+    let k = app.old_turing.nodes.len();
 
     let mut new_delta = vec![Pos2::default(); k];
 
@@ -334,25 +335,25 @@ fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
                 continue;
             }
 
-            let adj = app.turing.is_adjacent(i, j);
+            let adj = app.old_turing.is_adjacent(i, j);
             let distance = utils::distance(
-                app.turing.nodes[i].state.position,
-                app.turing.nodes[j].state.position,
+                app.old_turing.nodes[i].state.position,
+                app.old_turing.nodes[j].state.position,
             );
             let direction = utils::direction(
-                app.turing.nodes[i].state.position,
-                app.turing.nodes[j].state.position,
+                app.old_turing.nodes[i].state.position,
+                app.old_turing.nodes[j].state.position,
             );
 
             if adj > 0 {
                 force = utils::attract_force(
-                    app.turing.nodes[i].state.position,
-                    app.turing.nodes[j].state.position,
+                    app.old_turing.nodes[i].state.position,
+                    app.old_turing.nodes[j].state.position,
                 )
             } else {
                 force = -utils::rep_force(
-                    app.turing.nodes[i].state.position,
-                    app.turing.nodes[j].state.position,
+                    app.old_turing.nodes[i].state.position,
+                    app.old_turing.nodes[j].state.position,
                 ) * if distance >= Constant::L - 0.1 {
                     0.0
                 } else {
@@ -372,7 +373,7 @@ fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
 
     let mut center: Vec2 = Vec2::ZERO;
     for i in 0..k {
-        let n = &mut app.turing.nodes[i];
+        let n = &mut app.old_turing.nodes[i];
         n.state.position += new_delta[i].to_vec2();
         center += n.state.position.to_vec2();
     }

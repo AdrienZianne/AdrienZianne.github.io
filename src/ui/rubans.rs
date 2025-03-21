@@ -55,8 +55,8 @@ fn ruban(app: &mut TuringApp, ui: &mut Ui, index: usize, width: f32) {
 
         let mut square_count = ((width+5.0) / 35.0) + 2.0;
         square_count += if square_count as usize%2==0 {1.0} else {0.0};
-        let p = (square_count as i32/2) - app.turing.rubindex[0] as i32;
-        let input = format!("ç{}$", &app.turing.input);
+        let p = (square_count as i32/2) - app.old_turing.rubindex[0] as i32;
+        let input = format!("ç{}$", &app.old_turing.input);
 
 
         for i in 0..square_count as i32 {
