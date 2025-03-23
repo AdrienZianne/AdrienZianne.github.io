@@ -1,4 +1,3 @@
-
 use eframe::egui::{Context, Pos2, Rect, Vec2};
 
 use crate::ui::constant::Constant;
@@ -10,7 +9,7 @@ pub fn distance(s1: Pos2, s2: Pos2) -> f32 {
 
 // compute the repulsion force of the node
 pub fn rep_force(s1: Pos2, s2: Pos2) -> f32 {
-    Constant::CREP / distance(s1, s2).powi(2)
+    f32::max(-Constant::MAX_FORCE, f32::min(Constant::MAX_FORCE, Constant::CREP / distance(s1, s2).powi(2)))
 }
 
 // compute the attraction force of the node

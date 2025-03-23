@@ -2,7 +2,7 @@ use egui::{
     scroll_area::ScrollBarVisibility, Color32, CornerRadius, FontFamily, FontId, Frame, Label, Layout, Margin, Rect, RichText, ScrollArea, Sense, Stroke, Ui
 };
 
-use egui_infinite_scroll::{self, InfiniteScroll};
+use turingrs::turing_machine::TuringExecutor;
 use unicode_segmentation::UnicodeSegmentation;
 use crate::TuringApp;
 use super::constant::Constant;
@@ -10,7 +10,7 @@ use super::constant::Constant;
 // show the rubans part of the gui
 pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
 
-    let rubans_count = 2;
+    let rubans_count = app.turing.get_turing_machine().k+1;
     
     let frame = Frame::new()
         .inner_margin(Margin::same(10))
@@ -31,7 +31,7 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                     .horizontal_scroll_offset(-left_width/2.0)
                     .show(ui, |ui| {
                         for i in 0..rubans_count {
-                            ruban(app, ui, i, width);
+                            ruban(app, ui, i.into(), width);
                         }
                     })
             });
@@ -55,12 +55,22 @@ fn ruban(app: &mut TuringApp, ui: &mut Ui, index: usize, width: f32) {
 
         let mut square_count = ((width+5.0) / 35.0) + 2.0;
         square_count += if square_count as usize%2==0 {1.0} else {0.0};
-        let p = (square_count as i32/2) - app.old_turing.rubindex[0] as i32;
-        let input = format!("ç{}$", &app.old_turing.input);
+        let step = &app.current_step;
 
+        let p: i32;
+        let input: String;
+        if index == 0 {
+            p = (square_count as i32/2) - step.read_ribbon.pointer as i32;
+            input = step.read_ribbon.chars_vec.iter().collect();
+        } else {
+            p = (square_count as i32/2) - step.write_ribbons[index-1].pointer as i32;
+            input = step.write_ribbons[index-1].chars_vec.iter().collect();
+        }
+
+        println!("{}\n =>>> {}", app.current_step, input);
 
         for i in 0..square_count as i32 {
-            if index == 0 && p <= i as i32 && i as i32 - p < input.graphemes(true).count() as i32 {
+            if p <= i as i32 && i as i32 - p < input.graphemes(true).count() as i32 {
                 draw_square(ui, input.chars().nth((i as i32-p) as usize).unwrap());
             } else {
                 draw_square(ui, ' ');
@@ -72,7 +82,7 @@ fn ruban(app: &mut TuringApp, ui: &mut Ui, index: usize, width: f32) {
 // display a square of a ruban
 fn draw_square(ui: &mut Ui, t: char) {
     Frame::new().fill(Constant::FOREGROUND).show(ui, |ui| {
-        let (rect, res) = ui.allocate_exact_size((30.0, 30.0).into(), Sense::empty());
+        let (rect, _res) = ui.allocate_exact_size((30.0, 30.0).into(), Sense::empty());
 
         ui.put(
             rect,

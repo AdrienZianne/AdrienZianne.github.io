@@ -1,6 +1,9 @@
 
+use std::default;
+
 use eframe::egui::{Color32, Pos2};
-use rand::random;
+use egui::Vec2;
+use rand::{random, random_range};
 
 
 type NodeIndex = usize;
@@ -15,7 +18,7 @@ pub struct Turing {
     pub rubindex: Vec<usize>
 }
 
-#[derive(Default, PartialEq)]
+#[derive(PartialEq)]
 pub struct State {
     pub name: String,
     pub position: Pos2,
@@ -49,6 +52,16 @@ impl Default for Turing {
             code: String::new(),
             input: String::new(),
             rubindex: vec![0,0]
+        }
+    }
+}
+
+impl Default for State {
+    fn default() -> Self {
+        Self {
+            name: String::from("Test"),
+            position: Pos2::new(random_range(0.0..1.0), random_range(0.0..1.0)),
+            color: Color32::from_rgb(random(), random(), random()),
         }
     }
 }

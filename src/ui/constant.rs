@@ -12,13 +12,21 @@ impl Constant {
     pub const FOREGROUND: Color32 = Color32::from_rgb(109, 109, 109);
     pub const ARROW: Color32 = Color32::WHITE;
     pub const TEXT_SIZE: f32 = 16.0;
-    pub const CREP: f32 = 1000.0;
+    pub const SMALL_TEXT_SIZE: f32 = 12.0;
+    pub const CREP: f32 = 10000.0;
     pub const CSPRING: f32 = 100.0;
-    pub const L: f32 = 150.0;
+    pub const L: f32 = 200.0;
+    pub const MAX_FORCE: f32 = 100000.0;
     pub fn get_code_font() -> FontId {
         FontId {
             family: egui::FontFamily::Name("Roboto".into()),
             size: Constant::TEXT_SIZE,
+        }
+    }
+    pub fn get_small_font() -> FontId {
+        FontId {
+            family: egui::FontFamily::Name("Roboto".into()),
+            size: Constant::SMALL_TEXT_SIZE,
         }
     }
 }

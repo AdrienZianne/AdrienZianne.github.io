@@ -1,5 +1,8 @@
+use std::fmt::format;
+
 use egui::{vec2, Align, Align2, Button, Color32, Image, Label, Layout, TextEdit, Ui};
 use egui_flex::{item, Flex, FlexAlign, FlexAlignContent, FlexJustify};
+use turingrs::turing_machine::TuringMachineExecutor;
 
 use crate::TuringApp;
 
@@ -14,13 +17,15 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
         .h_full()
         .align_items(FlexAlign::Center)
         .show(left, |flex| {
-            let mut text = String::new();
 
-            let field = text_edit_single(flex.style_mut(), &mut app.old_turing.input);
+            let field = text_edit_single(flex.style_mut(),&mut app.input);
             let update = button(flex.style_mut(), "Update");
         
             flex.add(item().shrink(), field);
-            flex.add(item(), update);
+
+            if flex.add(item(), update).clicked() {
+                app.update_input();
+            }
         });
 
         Flex::horizontal()
@@ -37,10 +42,10 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
             flex.add(item(),play);
             flex.add(item(),pause);
             if flex.add(item(),reset).clicked() {
-                app.old_turing.rubindex[0] = 0;
+                app.update_input();
             };
             if flex.add(item(),next).clicked() {
-                app.old_turing.rubindex[0] += 1;
+                app.next();
             };
         });
 
@@ -50,11 +55,14 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
         .justify(FlexJustify::SpaceAround)
         .show(right, |flex| {
             
-            let steps = label(flex.style_mut(), "Steps : 0");
+            let steps = label(flex.style_mut(), &format!("Steps : {}", app.count));
             flex.add(item(), steps);
 
-            if true {
-                let result = label_colored(flex.style_mut(), "Accepted", Color32::GREEN);
+            if app.is_accepted.is_some() {
+                let result = match app.is_accepted.unwrap() {
+                    true => label_colored(flex.style_mut(), "Accepted", Color32::GREEN),
+                    false => label_colored(flex.style_mut(), "Refused", Color32::RED),
+                };
                 flex.add(item(), result);
             }
         }); 
