@@ -24,7 +24,11 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
                 ui.spacing_mut().item_spacing = (5.0, 8.0).into();
 
                 let width = ui.available_width();
-                let left_width = width - (((width+5.0) / 35.0) + 2.0 + (1 - ((width+5.0) / 35.0).floor() as usize%2) as f32).floor() * 35.0 + 5.0;
+                let left_width = width - 
+                    (
+                        ((width+5.0) / 35.0) + 2.0
+                        + (1 - ((width+5.0) / 35.0).floor() as usize%2) as f32).floor() * 35.0 + 5.0;
+
                 ScrollArea::horizontal()
                     .enable_scrolling(false)
                     .scroll_bar_visibility(ScrollBarVisibility::AlwaysHidden)
@@ -67,7 +71,7 @@ fn ruban(app: &mut TuringApp, ui: &mut Ui, index: usize, width: f32) {
             input = step.write_ribbons[index-1].chars_vec.iter().collect();
         }
 
-        println!("{}\n =>>> {}", app.current_step, input);
+        // println!("{}\n =>>> {}", app.current_step, input);
 
         for i in 0..square_count as i32 {
             if p <= i as i32 && i as i32 - p < input.graphemes(true).count() as i32 {

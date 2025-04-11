@@ -23,11 +23,13 @@ pub struct State {
     pub name: String,
     pub position: Pos2,
     pub color: Color32,
+    pub transitions: Vec<Transition>,
 }
 
-#[derive(Default)]
+#[derive(Default, PartialEq)]
 pub struct Transition {
     pub text: String,
+    pub id: u8
 }
 
 #[derive(PartialEq)]
@@ -62,6 +64,7 @@ impl Default for State {
             name: String::from("Test"),
             position: Pos2::new(random_range(0.0..1.0), random_range(0.0..1.0)),
             color: Color32::from_rgb(random(), random(), random()),
+            transitions: vec![]
         }
     }
 }
@@ -73,6 +76,7 @@ impl State {
             name: name,
             position: position,
             color: Color32::from_rgb(random(), random(), random()),
+            transitions: vec![]
         }
     }
 }

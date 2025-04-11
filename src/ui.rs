@@ -1,5 +1,5 @@
 use constant::Constant;
-use egui::{CentralPanel, CornerRadius, Frame, Id, Margin, Sense, SidePanel, Stroke, TopBottomPanel};
+use egui::{CentralPanel, Frame, Id, Margin, TopBottomPanel};
 
 use crate::TuringApp;
 mod rubans;
@@ -7,6 +7,7 @@ mod control;
 mod graph;
 mod code;
 mod button;
+pub mod turing;
 pub mod constant;
 
 pub fn show(app: &mut TuringApp, ctx: &egui::Context) {

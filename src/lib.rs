@@ -2,6 +2,6 @@
 
 mod app;
 mod ui;
-mod turing;
+// mod turing;
 mod utils;
 pub use app::TuringApp;

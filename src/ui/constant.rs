@@ -11,6 +11,7 @@ impl Constant {
     pub const BORDER2: Color32 = Color32::from_gray(175);
     pub const FOREGROUND: Color32 = Color32::from_rgb(109, 109, 109);
     pub const ARROW: Color32 = Color32::WHITE;
+    pub const SELECTED: Color32 = Color32::RED;
     pub const TEXT_SIZE: f32 = 16.0;
     pub const SMALL_TEXT_SIZE: f32 = 12.0;
     pub const CREP: f32 = 10000.0;

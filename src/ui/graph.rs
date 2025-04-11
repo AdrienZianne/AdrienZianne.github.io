@@ -1,27 +1,27 @@
+use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::ptr;
-use std::{sync::Arc, time::Duration};
 
-use egui::Margin;
+use egui::{response, CornerRadius, Margin, StrokeKind};
 use egui::{
     Color32, FontId, Frame, Id, Label, Pos2, Rect, Response, RichText, Scene, Sense, SidePanel,
     Stroke, Ui, Vec2,
     epaint::{CubicBezierShape, PathShape, QuadraticBezierShape},
-    mutex::Mutex,
     vec2,
 };
-use turingrs::turing_machine::{TuringExecutor, TuringMachine};
+use itertools::Itertools;
+use turingrs::turing_machine::TuringExecutor;
 use turingrs::turing_state::{TuringDirection, TuringTransition};
 
 use crate::{
     TuringApp,
-    turing::State,
+    ui::turing::State,
     utils::{self, direction},
 };
 
 use super::constant::Constant;
+use super::turing::Transition;
 
-// show the graph part of the gui
+/// Show the graph part of the gui
 pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
 
     SidePanel::left(Id::new("Graph"))
@@ -38,161 +38,149 @@ pub fn ui(app: &mut TuringApp, ui: &mut Ui) {
         .max_width(ui.available_width() - 115.0)
         .default_width(ui.available_width() / 1.5)
         .show_inside(ui, |ui| {
-            // update ui for organic force
-            let ofl = Arc::new(Mutex::new(OrganicForceLoop::default()));
-            ofl.lock().ctx = Some(ui.ctx().clone());
-            // let ofl_clone = ofl.clone();
-            // std::thread::spawn(move || update_graph(ofl_clone));
 
+            // rect initialization for Scene resize/moving
             let mut inner_rect = Rect::NAN;
+            let mut scene_rect = app.graph_rect;
 
             // apply force on node
             let (center, is_stable) = apply_organic_force(app);
             app.is_stable = is_stable;
 
+            // scene for graph resize/move
             let response = Scene::new()
-                .show(ui, &mut app.graph_rect, |ui| {
-                    // ui.painter().circle(center.to_pos2(), 1.0, Color32::RED, Stroke::NONE);
+                .show(ui, &mut scene_rect, |ui| {
 
-                    let mut transitions: Vec<(u8, TuringTransition)> = Vec::new();
 
-                    for (index, _state) in app.node.iter() {
-                        let mut x = app.turing.get_turing_machine().get_state(*index).transitions
-                            .clone().iter().map(|x| (*index, x.clone())).collect::<Vec<_>>();
-                        transitions.append(&mut x);
+                    // group transition by source and target state
+                    let mut transitions: HashMap<(u8,u8), Vec<(TuringTransition, &Transition)>> = HashMap::new();
+
+                    for (index, _state) in app.states_hash.iter() {
+
+                        for t in _state.transitions.iter() {
+                            let x = app.turing.turing_machine.states[*index as usize].get_transition(t.id).clone();
+
+                            match transitions.entry((*index, x.index_to_state)) {
+                                Entry::Occupied(mut e) => { e.get_mut().push((x,t)); },
+                                Entry::Vacant(e) => { e.insert(vec![(x,t)]); },
+                            }
+                        }
                     }
 
-                    // draw transitions
-                    for (from, t) in transitions {
-                        let to = t.index_to_state;
-                        let force_switch =
-                            app.turing.get_turing_machine().get_transition_index(from, to).is_some() && from > to;
+                    // draw group of transitions
+                    for ((from,to), trans) in transitions {
+                        let force_switch = app.turing.get_turing_machine().get_transition_index(from, to).is_some() && from > to;
 
-                        draw_transition(
+                        let mut rules: Vec<(bool, &Transition)> = vec![];
+                        for (tt, t) in trans.iter() {
+                            rules.push((app.current_step.transition_taken == *tt, t));
+                        }
+
+                        let source_pos = app.states_hash.get(&from).unwrap().position;
+                        let target_pos = app.states_hash.get(&to).unwrap().position;
+
+                        // println!("{}->{} == {:?}", from, to, &trans);
+                            
+                        let clicked = draw_transition(
                             ui,
-                            app.node.get(&from).unwrap().position,
-                            app.node.get(&to).unwrap().position,
-                            "place holder\nplace holder",
+                            source_pos,
+                            target_pos,
+                            &rules,
                             center,
-                            1.0 - 25.0 / 150.0,
                             force_switch,
+                            if app.selected_transition.is_some_and(|(f,t)| f == from && t == to) {Constant::SELECTED} else {Constant::ARROW},
+                            (from, to)
                         );
+
+                        if let Some(ti) = clicked {
+                            app.selected_transition = Some(ti);
+                            app.selected_node = None;
+                        }
                     }
 
-                    for (index, state) in app.node.iter_mut() {
+                    let mut responses: Vec<(Response, u8)> = vec![];
+
+                    // draw nodes
+                    for (index, state) in app.states_hash.iter_mut() {
                         let pos = state.position;
+
                         let response = draw_node(
                             ui,
                             pos,
                             50.0,
                             state.color,
                             if app.selected_node.is_some_and(|x| x == *index) {
-                                Color32::LIGHT_GRAY
+                                Constant::SELECTED
                             } else {
-                                Color32::DARK_GRAY
+                                state.color
                             },
                             &state.name,
+                            app.turing.get_state_pointer() == *index
                         );
 
+                        responses.push((response, *index));
+                    }
+
+                    for (response, index) in responses {
                         // if node clicked
                         if response.clicked() {
+
                             // if there is a node already selected
-                            if app.selected_node.is_some() {
-                                let from = app.selected_node.clone().unwrap();
+                            if let Some(from) = app.selected_node {
 
                                 let transition = TuringTransition::new(
-                                    vec!['ç', 'ç', 'ç'],
-                                    TuringDirection::Right,
-                                    vec![
-                                        ('ç', TuringDirection::Right),
-                                        ('ç', TuringDirection::Right),
-                                    ],
+                                    vec![],
+                                    TuringDirection::None,
+                                    vec![],
                                 );
 
-                                let _ = app.turing.turing_machine.append_rule_state(from, transition, *index);
-                                // app.turing.add_transition(
-                                //     Transition {
-                                //         text: String::from("ç,ç -> R,ç,R"),
-                                //     },
-                                //     app.old_turing.selected.unwrap(),
-                                //     i,
-                                // );
+                                let ts = transition.to_string();
+
+                                let x = app.turing.turing_machine.append_rule_state(from, transition, index).expect("unable to add rule");
+
+                                app.states_hash.get_mut(&from).unwrap().transitions.push(Transition { text: ts, id: x });
+
                                 app.is_stable = false;
 
                                 app.selected_node = None;
                             } else {
-                                app.selected_node = Some(*index);
+                                app.selected_node = Some(index);
+                                app.selected_transition = None;
                             }
                         }
 
                         if response.dragged() {
-                            state.position = response.interact_pointer_pos().unwrap();
+                            app.states_hash.get_mut(&index).unwrap().position = response.interact_pointer_pos().unwrap();
                         }
                     }
-
-                    // // draw the nodes
-                    // for i in 0..app.old_turing.nodes.len() {
-                    //     let node = &app.old_turing.nodes[i];
-                    //     let pos = node;
-                    //     let response = draw_node(
-                    //         ui,
-                    //         pos,
-                    //         50.0,
-                    //         node.state.color,
-                    //         if app.old_turing.selected.is_some_and(|x| x == i) {
-                    //             Color32::LIGHT_GRAY
-                    //         } else {
-                    //             Color32::DARK_GRAY
-                    //         },
-                    //         &node.state.name,
-                    //     );
-
-                    //     // if node clicked
-                    //     if response.clicked() {
-                    //         // if there is a node already selected
-                    //         if app.old_turing.selected.is_some() {
-                    //             match app.old_turing.transition_exist(app.old_turing.selected.unwrap(), i) {
-                    //                 Some(e) => app.old_turing.remove_transition(e),
-                    //                 None => {
-                    //                     app.old_turing.add_transition(
-                    //                         Transition {
-                    //                             text: String::from("ç,ç -> R,ç,R"),
-                    //                         },
-                    //                         app.old_turing.selected.unwrap(),
-                    //                         i,
-                    //                     );
-                    //                     app.is_stable = false;
-                    //                 }
-                    //             }
-
-                    //             app.old_turing.selected = None;
-                    //         } else {
-                    //             app.old_turing.selected = Some(i);
-                    //         }
-                    //     }
-
-                    //     if response.dragged() {
-                    //         app.old_turing.nodes[i] =
-                    //             response.interact_pointer_pos().unwrap();
-                    //     }
-                    // }
 
                     inner_rect = ui.min_rect();
                 })
                 .response;
 
+            // save state of Scene
+            app.graph_rect = scene_rect;
+
             // if graph canvas clicked
             if response.clicked() {
+
+                // if double clicked, try to center
                 if response.double_clicked() {
                     app.graph_rect = inner_rect;
-                } else {
+                } 
+                else {
+
+                    // Unselect whatever is selected
                     if app.selected_node.is_some() || app.selected_transition.is_some() {
                         app.selected_node = None;
                         app.selected_transition = None;
-                    } else {
+                    } 
+                    else {
+                        // create new state
+                        // TODO need to make focus to textedit for name
                         let text = String::from("Test");
                         let index = app.turing.turing_machine.add_state(&text);
-                        app.node.insert(
+                        app.states_hash.insert(
                             index,
                             State::new_at_pos(
                                 text,
@@ -220,20 +208,22 @@ fn draw_node(
     color: Color32,
     stroke_color: Color32,
     text: &str,
+    is_current: bool
 ) -> Response {
     let rect = Rect::from_center_size(pos, (size, size).into());
 
     ui.painter()
         .circle(pos, size / 2.0, color, Stroke::new(3.0, stroke_color));
 
-    let label = Label::new(
-        RichText::new(text)
-            .font(FontId {
-                family: egui::FontFamily::Name("Roboto".into()),
-                size: 10.0,
-            })
-            .color(Color32::BLACK),
-    );
+    let mut text = RichText::new(text)
+        .font(FontId {
+            family: egui::FontFamily::Name("Roboto-regular".into()),
+            size: 14.0,
+        })
+        .color(Color32::BLACK);
+
+    if is_current {text = text.underline()}
+    let label = Label::new(text);
 
     ui.put(rect, label);
 
@@ -245,11 +235,12 @@ fn draw_transition(
     ui: &mut Ui,
     source: Pos2,
     target: Pos2,
-    text: &str,
+    transitions: &Vec<(bool, &Transition)>,
     graph_center: Vec2,
-    arrow_pos: f32,
     reverse: bool,
-) {
+    color: Color32,
+    transition_id: (u8, u8)
+) -> Option<(u8, u8)> {
     let mut delta = (if reverse {
         source - target
     } else {
@@ -273,7 +264,7 @@ fn draw_transition(
     }
 
     let pointy;
-    let t = arrow_pos;
+    let pos;
 
     if source == target {
         delta = direction(graph_center.to_pos2(), source).normalized();
@@ -288,10 +279,11 @@ fn draw_transition(
             points,
             false,
             Color32::TRANSPARENT,
-            Stroke::new(1.0, Constant::ARROW),
+            Stroke::new(1.0, color),
         ));
 
-        pointy = cubicbeziercurve(points, t);
+        pointy = cubicbeziercurve(points, 1.0 - 15.0 / Constant::L);
+        pos = center + delta * Vec2::new(120.0, 100.0);
 
         for i in 0..10 {
             ui.painter().circle(
@@ -308,10 +300,11 @@ fn draw_transition(
             points,
             false,
             Color32::TRANSPARENT,
-            Stroke::new(1.0, Constant::ARROW),
+            Stroke::new(1.0, color),
         ));
 
-        pointy = quadraticbeziercurve(points, t);
+        pointy = quadraticbeziercurve(points,  1.0 - 25.0 / Constant::L);
+        pos = center + delta * Vec2::new(50.0, 35.0);
     }
 
     // paint arrow
@@ -324,21 +317,34 @@ fn draw_transition(
 
     ui.painter().add(PathShape::convex_polygon(
         triangles,
-        Constant::ARROW,
+        color,
         Stroke::NONE,
     ));
 
-    // paint text
-    let pos = center + delta * Vec2::new(50.0, 30.0);
-    if ui
-        .put(
-            Rect::from_center_size(pos.to_pos2(), Vec2::new(0.0, 30.0)),
-            Label::new(text).extend(),
-        )
-        .clicked()
-    {
-        println!("WTF")
-    }
+    let mut clicked: Option<(u8, u8)> = None;
+
+    for (i,(select, t)) in transitions.iter().enumerate() {
+        
+        let txt = if *select {RichText::new(&t.text).color(Constant::SELECTED)} else { RichText::new(&t.text)};
+        // paint text
+        let rect = ui.put(
+                Rect::from_center_size((pos + vec2(0.0, i as f32 * 15.0)).to_pos2(), Vec2::new(0.0, 20.0)),
+                Label::new(txt).extend().selectable(false),
+            ).rect;
+
+        let response = ui
+            .allocate_rect(rect,
+            Sense::click()
+        );
+
+        ui.painter().rect_stroke(response.rect, CornerRadius::ZERO, Stroke::new(1.0, Color32::CYAN), StrokeKind::Inside);
+        if response.clicked() {
+            clicked = Some(transition_id);
+            println!("{} {} {} {:?}", response.interact_pointer_pos().unwrap(), rect, t.text, transition_id);
+        }
+    };
+    
+    clicked
 }
 
 // return a point on the curve of a quadratic bezier
@@ -365,23 +371,6 @@ fn cubicbeziercurve(points: [Pos2; 4], t: f32) -> Vec2 {
     Vec2::new(x, y)
 }
 
-#[derive(Default)]
-struct OrganicForceLoop {
-    ctx: Option<egui::Context>,
-}
-
-// force the update of the graph part every x ms
-fn update_graph(ofl: Arc<Mutex<OrganicForceLoop>>) {
-    loop {
-        std::thread::sleep(std::time::Duration::from_millis(100));
-        let ctx = &ofl.lock().ctx;
-        match ctx {
-            Some(x) => x.request_repaint(),
-            None => panic!("Error"),
-        }
-    }
-}
-
 // apply a force on the node for organic layout
 fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
     let k = app.turing.get_turing_machine().name_index_hashmap.len();
@@ -404,23 +393,23 @@ fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
                 || app.turing.get_turing_machine().get_transition_index(*j, *i).is_some();
 
             let distance = utils::distance(
-                app.node.get(i).unwrap().position,
-                app.node.get(j).unwrap().position,
+                app.states_hash.get(i).unwrap().position,
+                app.states_hash.get(j).unwrap().position,
             );
             let direction = utils::direction(
-                app.node.get(i).unwrap().position,
-                app.node.get(j).unwrap().position,
+                app.states_hash.get(i).unwrap().position,
+                app.states_hash.get(j).unwrap().position,
             );
 
             if adj {
                 force = utils::attract_force(
-                    app.node.get(i).unwrap().position,
-                    app.node.get(j).unwrap().position,
+                    app.states_hash.get(i).unwrap().position,
+                    app.states_hash.get(j).unwrap().position,
                 )
             } else {
                 force = -utils::rep_force(
-                    app.node.get(i).unwrap().position,
-                    app.node.get(j).unwrap().position,
+                    app.states_hash.get(i).unwrap().position,
+                    app.states_hash.get(j).unwrap().position,
                 ) * if distance >= Constant::L - 0.1 {
                     0.0
                 } else {
@@ -452,7 +441,7 @@ fn apply_organic_force(app: &mut TuringApp) -> (Vec2, bool) {
 
     let mut center: Vec2 = Vec2::ZERO;
     for (name, i) in app.turing.get_turing_machine().name_index_hashmap.iter() {
-        let n = app.node.get_mut(i).unwrap();
+        let n = app.states_hash.get_mut(i).unwrap();
         n.position += new_delta.get(i).unwrap().to_vec2();
         center += n.position.to_vec2();
     }
